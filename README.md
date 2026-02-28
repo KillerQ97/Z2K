@@ -1,5 +1,5 @@
 # KillerQ's Z2K (Zone 2 Killer)
-### A Network Firewall for Denon & Marantz Receiver "CEC Ghosts" that often prevent your desired video input mode from switching properly
+### A Network Firewall for Denon & Marantz Receiver "CEC Ghosts"
 
 ## The Problem
 If you own an Nvidia Shield Pro (or similar HDMI-CEC components) and a Denon/Marantz AVR, you have likely encountered the "Zone 2 Bug." During HDMI-CEC handshakes, the Shield mistakenly sends a "Zone 2 Power On" command. 
