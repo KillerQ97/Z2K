@@ -1,70 +1,102 @@
 import socket
 import time
-from datetime import datetime
 import os
+from datetime import datetime
+
+# =========================================================
+# PROGRAM: KillerQ's Z2K (Zone 2 Killer)
+# VERSION: 1.0
+# DESCRIPTION: A network sentinel that intercepts rogue 
+# Zone 2 power events on Denon/Marantz receivers.
+# =========================================================
 
 # --- CONFIGURATION ---
-DENON_IP = "192.168.XXX.XXX" # (ADD YOU OWN AVR IP HERE)
-CHECK_INTERVAL = 2          
-LOG_FILE = "shield_guard_log.txt"
+DENON_IP = "192.168.xxx.xxx"  # Replace with your AVR's Static IP
+CHECK_INTERVAL = 2             # How often to check (seconds)
+LOG_FILE = "z2k_event_log.txt"
 
-# Tracking
-stop_count = 0
+# --- STATE ---
+block_count = 0
 
 def log_event(message):
-    timestamp = datetime.now().strftime('%H:%M:%S')
+    """Logs activity with timestamps for the 'Black Box' record."""
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     entry = f"[{timestamp}] {message}"
-    with open(LOG_FILE, "a") as f:
-        f.write(entry + "\n")
-    return entry
-
-def send_cmd(cmd):
     try:
-        with socket.create_connection((DENON_IP, 23), timeout=1) as s:
+        with open(LOG_FILE, "a") as f:
+            f.write(entry + "\n")
+    except Exception as e:
+        pass
+
+def send_command(cmd):
+    """
+    Sends Telnet commands via Port 23.
+    Note for Pi/Linux/Arduino: This is a standard TCP socket 
+    connection using ASCII encoding and Carriage Return (CR).
+    """
+    try:
+        # Standard socket connection (works on Windows, Linux, and MacOS)
+        with socket.create_connection((DENON_IP, 23), timeout=2) as s:
             s.sendall((cmd + "\r").encode('ascii'))
-            time.sleep(0.1)
+            time.sleep(0.1) # Small delay for AVR processing
             data = s.recv(1024).decode('ascii', errors='ignore').strip()
             return data.replace('\r', ' ')
-    except:
-        return "RECONNECTING..."
+    except Exception:
+        return "CONNECTION_ERROR"
 
-def refresh_screen(status_text):
+def clear_console():
+    """Clears terminal screen for a clean 'Dashboard' view."""
     os.system('cls' if os.name == 'nt' else 'clear')
-    print("=========================================")
-    print("   DENON SHIELD GUARD: V12 MONITOR       ")
-    print(f"   BLOCK COUNTER: [ {stop_count} ]")
-    print("=========================================")
-    print(f" STATUS: {status_text[:50]}")
-    print("=========================================")
-    print(" (Watching for Shield CEC 'Zone 2' bugs...)")
 
-try:
+def display_status(raw_status):
+    """The live monitoring dashboard."""
+    clear_console()
+    print("=========================================")
+    print("      KillerQ's Z2K - MONITOR ACTIVE     ")
+    print(f"      SNEAKS KILLED: [ {block_count} ]")
+    print("=========================================")
+    print(f" AVR STATUS: {raw_status[:50]}")
+    print("=========================================")
+    print(" Status: Patrol in progress...")
+    print(" Press Ctrl+C to stop monitoring.")
+    print(" (Running on Linux? Use crontab for boot)")
+
+def run_guard():
+    global block_count
+    
+    # Initial connection test
+    test = send_command("PW?")
+    if "CONNECTION_ERROR" in test:
+        print(f"ERROR: Could not connect to AVR at {DENON_IP}")
+        print("1. Check your IP address.")
+        print("2. Ensure 'Network Control' is set to 'Always On' in AVR.")
+        print("3. Ensure your device is on the same network.")
+        return
+
     while True:
-        raw_status = send_cmd("Z2?")
-        
-        # Update the clean UI
-        refresh_screen(raw_status)
+        # Check Zone 2 Status
+        status = send_command("Z2?")
+        display_status(status)
 
-        # Logic: If 'Z2ON' is in the mess, but 'Z2OFF' is not.
-        if "Z2ON" in raw_status and "Z2OFF" not in raw_status:
-            stop_count += 1
-            log_event(f"INTERCEPTED SNEAK #{stop_count}")
+        # Logic: If Zone 2 reports ON (and isn't already OFF)
+        if "Z2ON" in status and "Z2OFF" not in status:
+            block_count += 1
+            log_event(f"KILLED ROGUE Z2 POWER (Event #{block_count})")
             
-            print("\n" + "!"*40)
-            print(f" KILLING ZONE 2 (SNEAK #{stop_count})...")
-            
-            # The Kill Sequence
-            send_cmd("Z2OFF")
-            send_cmd("Z2STANDBY")
+            # The 'Kill' Sequence
+            send_command("Z2OFF")     # Standard Off
+            send_command("Z2STANDBY") # Force Standby
             time.sleep(0.5)
-            send_cmd("SIMPLAY") 
+            send_command("SIMPLAY")   # Force focus back to Main Zone
             
-            time.sleep(1.5) # Let it settle
-            print(" SUCCESS: ZONE 2 NEUTRALIZED.")
-            print("!"*40)
-            time.sleep(1) # Show success message briefly before refresh
+            log_event("Restored Main Zone stability.")
+            time.sleep(1) # Extra pause to prevent command looping
             
         time.sleep(CHECK_INTERVAL)
 
-except KeyboardInterrupt:
-    print(f"\n\nStopped. Total sneaks blocked: {stop_count}")
+if __name__ == "__main__":
+    # Windows/Linux/Mac execution entry point
+    try:
+        run_guard()
+    except KeyboardInterrupt:
+        print(f"\nZ2K Stopped. Total sneaks killed: {block_count}")
