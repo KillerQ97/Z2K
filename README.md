@@ -1,4 +1,4 @@
-# KillerQ's Z2K (Zone 2 Killer)
+# KillerQ's Z2K (Zone2 Killer)
 ### A Network Firewall for Denon & Marantz Receiver "CEC Ghosts-In-The-Machine"
 
 ## The Problem
