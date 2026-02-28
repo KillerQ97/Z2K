@@ -5,13 +5,13 @@ from datetime import datetime
 
 # =========================================================
 # PROGRAM: KillerQ's Z2K (Zone 2 Killer)
-# VERSION: 1.0
+# VERSION: 1.1
 # DESCRIPTION: A network sentinel that intercepts rogue 
 # Zone 2 power events on Denon/Marantz receivers.
 # =========================================================
 
 # --- CONFIGURATION ---
-DENON_IP = "192.168.xxx.xxx"  # Replace with your AVR's Static IP
+DENON_IP = "192.168.68.63"  # Replace with your AVR's Static IP
 CHECK_INTERVAL = 2             # How often to check (seconds)
 LOG_FILE = "z2k_event_log.txt"
 
@@ -25,7 +25,7 @@ def log_event(message):
     try:
         with open(LOG_FILE, "a") as f:
             f.write(entry + "\n")
-    except Exception as e:
+    except Exception:
         pass
 
 def send_command(cmd):
@@ -81,6 +81,9 @@ def run_guard():
         # Logic: If Zone 2 reports ON (and isn't already OFF)
         if "Z2ON" in status and "Z2OFF" not in status:
             block_count += 1
+            
+            # --- Visual Alert for Windows Dashboard ---
+            print("\n [!!!] ROGUE EVENT DETECTED! INTERCEPTING... [!!!]")
             log_event(f"KILLED ROGUE Z2 POWER (Event #{block_count})")
             
             # The 'Kill' Sequence
@@ -89,8 +92,14 @@ def run_guard():
             time.sleep(0.5)
             send_command("SIMPLAY")   # Force focus back to Main Zone
             
+            # Victory Message
+            print(f" [OK] ZONE 2 KILLED. SNEAKS BLOCKED: {block_count}")
+            print(" (Hope you enjoyed that hunt! This message will clear in 5 seconds)")
+            
             log_event("Restored Main Zone stability.")
-            time.sleep(1) # Extra pause to prevent command looping
+            
+            # Hold the message on screen for 5 seconds
+            time.sleep(5) 
             
         time.sleep(CHECK_INTERVAL)
 
